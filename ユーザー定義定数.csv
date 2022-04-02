@@ -1,0 +1,12 @@
+1.全自動育成モード,AUTO_MODE,真偽値,true|false,true
+2.育成キャラ,TRAINING_CHARACTER,文字列,[育成キャラ名],アドマイヤベガ [Starry Nocturne]
+3-1.継承ウマ娘1人目の名前,INHERITANCE1_CHARACTER,文字列,[育成キャラ名],
+3-2.継承ウマ娘1人目の評価点,INHERITANCE1_EVALUATION,整数,,
+4-1.継承ウマ娘2人目の名前,INHERITANCE2_CHARACTER,文字列,[育成キャラ名],
+4-2.継承ウマ娘2人目の評価点 ,INHERITANCE2_EVALUATION,整数,,
+5-0.継承ウマ娘をレンタルするか,INHERITANCE_RENTAL,整数,0|1|2,0
+5-1.レンタルする継承ウマ娘の名前,INHERITANCE_RENTAL_CHARACTER,文字列,[育成キャラ名],
+5-2.レンタルする継承ウマ娘の評価点,INHERITANCE_RENTAL_EVALUATION,整数,,
+6.デッキ番号,SUPPORT_DECK,整数,1|2|3|4|5|6|7|8|9|10,1
+7-1.フレンドのサポートカード,SUPPORT_FRIEND,文字列,[サポートキャラ名],マチカネフクキタル [袖振り合えば福となる♪]
+7-2.フレサポカの凸,SUPPROT_FRIEND_LIMIT,整数,0|1|2|3|4,4
