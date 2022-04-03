@@ -1,5 +1,5 @@
-1.全自動育成モード,AUTO_MODE,真偽値,true|false,true
-2.育成キャラ,TRAINING_CHARACTER,文字列,[育成キャラ名],アドマイヤベガ [Starry Nocturne]
+1.全自動育成モード,AUTO_MODE,真偽値,true|false,false
+2.育成キャラ,TRAINING_CHARACTER,文字列,[育成キャラ名],トウカイテイオー [ビヨンド・ザ・ホライズン]
 3-1.継承ウマ娘1人目の名前,INHERITANCE1_CHARACTER,文字列,[育成キャラ名],
 3-2.継承ウマ娘1人目の評価点,INHERITANCE1_EVALUATION,整数,,
 4-1.継承ウマ娘2人目の名前,INHERITANCE2_CHARACTER,文字列,[育成キャラ名],
