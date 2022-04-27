@@ -204,14 +204,6 @@ CONFIG.AUTO_MODE.TEAM_RACE = false
 CONFIG.AUTO_MODE.AUTO_RACE = false
 
 
--- 育成周回中にレーシングカーニバルへ出走するか（詳細はレース自動出走の設定のCONFIG.RACING_CARNIVALの項目を参照）
--- trueを指定すると出走する（RPが残っている場合にCONFIG.RACING_CARNIVALの設定に従ってレースを周回する）
--- falseを指定すると出走しない
--- CONFIG.AUTO_MODE.TEAM_RACEがtrueの場合は無効になる（CONFIG.AUTO_MODE.TEAM_RACEの設定が優先される）
--- CONFIG.AUTO_MODE.AUTO_RACEがtrueの場合は無効になる（CONFIG.AUTO_MODE.AUTO_RACEの設定が優先される）
-CONFIG.AUTO_MODE.RACING_CARNIVAL = false
-
-
 -- 育成周回中にサークルをチェックするか（詳細はおまけ機能関連の設定のCONFIG.CIRCLEの項目を参照）
 -- trueを指定するとチェックする（CONFIG.CIRCLEの設定に従って寄付やリクエストを行う）
 -- falseを指定するとチェックしない
@@ -513,11 +505,29 @@ CONFIG.AUTO_RACE.LEGEND_RACE = true
 CONFIG.AUTO_RACE.CHAMPIONS_MEETING = true
 
 
+-- レーシングカーニバルに自動的に出走するか
+-- trueの場合はレーシングカーニバルを周回してレース画面へ戻る
+-- falseの場合は出走しない
+CONFIG.AUTO_RACE.RACING_CARNIVAL = true
+
+
 -- 全てのレースを周回後にホームへ戻るか
 -- 全自動育成モードが有効の場合はホームへ戻った後に育成が開始される
 -- trueの場合はホームへ戻る
 -- falseの場合はホームへ戻らずにスクリプトを終了する
 CONFIG.AUTO_RACE.RETURN_HOME = true
+
+
+-- チームレースを周回する回数
+-- RPを回復する設定にしていない場合はRPが0になった時点で周回を終了する
+CONFIG.TEAM_RACE.COUNT = 5
+
+
+-- チームレース周回時にRP不足の場合アイテムを使って回復するか
+-- trueを指定すると回復する
+-- falseを指定すると回復しない
+-- ジュエルの下に表示されているアイテムが使用される
+CONFIG.TEAM_RACE.USE_ITEM = false
 
 
 -- チームレースで選択する対戦相手
@@ -607,6 +617,18 @@ CONFIG.CHAMPIONS_MEETING.MISSION = true
 CONFIG.CHAMPIONS_MEETING.USE_JEWEL = false
 
 
+-- レーシングカーニバルを周回する回数
+-- RPを回復する設定にしていない場合はRPが0になった時点で周回を終了する
+CONFIG.RACING_CARNIVAL.COUNT = 5
+
+
+-- レーシングカーニバル周回時にRP不足の場合アイテムを使って回復するか
+-- trueを指定すると回復する
+-- falseを指定すると回復しない
+-- ジュエルの下に表示されているアイテムが使用される
+CONFIG.RACING_CARNIVAL.USE_ITEM = false
+
+
 -- レーシングカーニバルで出走するカーニバルレース
 -- 1 左上
 -- 2 右上
@@ -636,6 +658,7 @@ CONFIG.RACING_CARNIVAL.CHALLENGE_RACE_RETRY = true
 -- レーシングカーニバルでRP0かつチャレンジレースにリトライ可能な場合にアイテムを使用して回復するか
 -- trueの場合は回復する
 -- falseの場合は回復しない
+-- trueの場合はCONFIG.RACING_CARNIVAL.COUNTやCONFIG.RACING_CARNIVAL.USE_ITEMの設定に関係なく回復して出走する
 CONFIG.RACING_CARNIVAL.CHALLENGE_RACE_RETRY_USE_ITEM = true
 
 
@@ -1412,7 +1435,7 @@ function getKizunaScore( charaName, hintMark, trainingInfo )
 	for i = 1, #g_status[STATUS.SUPPORT_CHARA] do
 
 		-- ステータスに登録されているサポートキャラは二つ名込みなのでremoveNickName関数で二つ名を削除してから比較
-		if charaName == removeNickName(g_status[STATUS.SUPPORT_CHARA][i].name) then
+		if charaName == USER.removeNickName(g_status[STATUS.SUPPORT_CHARA][i].name) then
 
 			-- 名前が一致したサポートキャラを保持
 			supportChara = g_status[STATUS.SUPPORT_CHARA][i]
@@ -1740,8 +1763,8 @@ function getSkillScore( skillInfo, hintLevel )
 	local totalEvaluation = skillInfo.evaluation
 	if skillInfo.lowerSkill then
 
-		-- isAcquireSkill関数は引数のスキルが習得済みかどうかを真偽値として返す
-		if not isAcquireSkill(skillInfo.lowerSkill) then
+		-- USER.hasSkill関数は引数のスキルが習得済みかどうかを真偽値として返す
+		if not USER.hasSkill(skillInfo.lowerSkill) then
 			totalSkillPoint = totalSkillPoint + skillInfo.lowerSkill.skillPoint
 			totalEvaluation = totalEvaluation + skillInfo.lowerSkill.evaluation
 		end
@@ -1851,32 +1874,6 @@ end
 ----------------------------------------------------------------------------------------------------
 function getItemScore( itemInfo, coin, count, sale, turn )
 
-	-- 引数で指定した名前のアイテムの所持数を取得する関数
-	local function getItemCount( itemName )
-		for i = 1, #g_status[STATUS.ITEM] do
-			if g_status[STATUS.ITEM][i].itemInfo.name == itemName then
-				return g_status[STATUS.ITEM][i].count
-			end
-		end
-		return 0
-	end
-
-	-- アイテムで回復できる体力の合計を取得する関数
-	local function getTotalRecoverHp()
-		local totalRecoverHp = 0
-		local itemNameTable =
-		{
-			ITEM.JUICE,
-			ITEM.VITAL3,
-			ITEM.VITAL2,
-			ITEM.VITAL1,
-		}
-		for i = 1, #itemNameTable do
-			totalRecoverHp = totalRecoverHp + getItemCount(itemNameTable[i]) * g_itemInfo[itemNameTable[i]].param
-		end
-		return totalRecoverHp
-	end
-
 	local score = 0
 
 	-- 体力回復アイテムの場合
@@ -1889,7 +1886,7 @@ function getItemScore( itemInfo, coin, count, sale, turn )
 		score = score - count * 30
 
 		-- アイテムで回復できる体力の合計が50以下の場合
-		if getTotalRecoverHp() <= 50 then
+		if USER.getTotalRecoverHp() <= 50 then
 
 			-- 50点を加点する
 			score = score + 50
@@ -1899,7 +1896,7 @@ function getItemScore( itemInfo, coin, count, sale, turn )
 		if g_status[STATUS.SEASON].index >= SEASON.SENIOR_10A.index then
 
 			-- アイテムで回復できる体力による補正
-			score = score - getTotalRecoverHp() / 2
+			score = score - USER.getTotalRecoverHp() / 2
 		end
 
 	-- 最大体力上昇アイテムの場合
@@ -2019,9 +2016,9 @@ function getItemScore( itemInfo, coin, count, sale, turn )
 		-- 所持数による補正
 		-- 上位のメガホンも補正の対象にする
 		if itemInfo.name == ITEM.MEGAPHONE1 then
-			score = score - (count + getItemCount(ITEM.MEGAPHONE2) + getItemCount(ITEM.MEGAPHONE3)) * 30
+			score = score - (count + USER.getItemCount(ITEM.MEGAPHONE2) + USER.getItemCount(ITEM.MEGAPHONE3)) * 30
 		elseif itemInfo.name == ITEM.MEGAPHONE2 then
-			score = score - (count + getItemCount(ITEM.MEGAPHONE3)) * 30
+			score = score - (count + USER.getItemCount(ITEM.MEGAPHONE3)) * 30
 		else
 			score = score - count * 30
 		end
@@ -2058,7 +2055,7 @@ function getItemScore( itemInfo, coin, count, sale, turn )
 		if g_status[STATUS.SEASON].index >= SEASON.SENIOR_10A.index then
 
 			-- アイテムで回復できる体力による補正
-			score = score - getTotalRecoverHp() / 2
+			score = score - USER.getTotalRecoverHp() / 2
 		end
 
 	-- ハンマーの場合
@@ -2074,13 +2071,13 @@ function getItemScore( itemInfo, coin, count, sale, turn )
 		if g_status[STATUS.SEASON].index == SEASON.CLIMAX.index and g_status[STATUS.SEASON_INDEX] == 1 then
 
 			-- 蹄鉄ハンマー・極が3つ以上の場合
-			if getItemCount(ITEM.HAMMER2) >= 3 then
+			if USER.getItemCount(ITEM.HAMMER2) >= 3 then
 
 				-- 0を基準点にする
 				score = 0
 
 			-- 蹄鉄ハンマーの合計が3つより少ない場合
-			elseif getItemCount(ITEM.HAMMER1) + getItemCount(ITEM.HAMMER2) < 3 then
+			elseif USER.getItemCount(ITEM.HAMMER1) + USER.getItemCount(ITEM.HAMMER2) < 3 then
 
 				-- 100点を加点する
 				score = score + 100
@@ -2179,12 +2176,6 @@ end
 --       turn      購入可能な残りターン数
 --       score     スコア
 --     例：itemScoreTable[1].itemInfo.nameで最高スコアのアイテム名を参照できる
---   unavailableItemTable
---     利用不可アイテムのテーブル
---     例：actionInfo.unavailableItemTable[ITEM.VITAL1]でバイタル20が利用不可かどうかを判定できる
---     ACTION.USE_ITEMを返して使用したアイテムが利用不可の場合にtrueになる
---     利用不可アイテムを使用しようとして無限ループになってしまうのを防ぐために利用する
---     ターン毎に初期化される
 --   isChangeTurn
 --     ターン（時期）が変更されたかどうか
 --       true   変更された
@@ -2260,7 +2251,7 @@ end
 --                                 レース本番または未勝利クラスの場合はレース一覧の一番上のレースに出走されるので指定しなくて良い
 --   ACTION.USE_ITEM             ※アイテムの使用
 --                                 2つ目の戻り値に使用するアイテムのアイテム情報を指定する
---                                 未所持のアイテムや使用不可のアイテムを指定するとunavailableItemTableのフラグがtrueになる
+--                                 使用不可のアイテムを指定すると無限ループ防止のためにステータスから削除される
 --   ACTION.COMPLETE             育成完了
 --                                 育成完了画面（g_status[STATUS.COMPLETE]がtrue）の場合でのみ指定できる
 --   ACTION.RETIRE               あきらめる
@@ -2269,6 +2260,12 @@ end
 --                                 2つ目の戻り値に待機する秒数を指定する
 --   ACTION.REBOOT               ウマ娘の再起動
 --   ACTION.EXIT                 スクリプトの終了
+--   ACTION.EXIT_APP             ウマサポの終了
+--                                 2つ目の戻り値にtrueを指定するとウマ娘も同時に終了する
+--   ACTION.EXIT_WINDOWS         Windowsの終了
+--                                 2つ目の戻り値にtrueを指定するとプロセスを強制的に終了する
+--   ACTION.REBOOT_WINDOWS       Windowsの再起動
+--                                 2つ目の戻り値にtrueを指定するとプロセスを強制的に終了する
 ----------------------------------------------------------------------------------------------------
 function getAction( actionInfo )
 
@@ -2416,68 +2413,6 @@ function getAction( actionInfo )
 	end
 
 
-	-- アイテムの所持数を取得する関数
-	-- 扱いやすいように引数はアイテム名を渡すようにしている
-	-- getItemCount(ITEM.MEGAPHONE1)でチアメガホンの所持数を取得できる
-	----------------------------------------------------------------------------------------------------
-	local function getItemCount( itemName )
-
-		-- 利用不可アイテムの場合は無限ループ防止のために所持していない事にする
-		if actionInfo.unavailableItemTable[itemName] then
-			return 0
-		end
-
-		for i = 1, #g_status[STATUS.ITEM] do
-			if g_status[STATUS.ITEM][i].itemInfo.name == itemName then
-				return g_status[STATUS.ITEM][i].count
-			end
-		end
-		return 0
-	end
-
-
-	-- 発動中のアイテムを取得する関数
-	-- 引数は重複不可アイテムに対応するためアイテムタイプを渡す
-	-- getActiveItem(ITEM_TYPE.MEGAPHONE)で発動中のメガホンの発動アイテムを取得できる
-	----------------------------------------------------------------------------------------------------
-	local function getActiveItem( itemType )
-		for i = 1, #g_status[STATUS.ACTIVE_ITEM] do
-			if g_status[STATUS.ACTIVE_ITEM][i].itemInfo.type == itemType then
-				return g_status[STATUS.ACTIVE_ITEM][i]
-			end
-		end
-	end
-
-
-	-- 使用するバフアイテムを取得する関数
-	-- アイテム名のテーブルから使用するバフアイテムを取得する
-	-- テーブルの前の方のアイテムが優先的に使用される
-	-- 効果の低いアイテムが発動中であっても使用される
-	----------------------------------------------------------------------------------------------------
-	local function getUseBuffItem( itemNameTable )
-
-		for i = 1, #itemNameTable do
-
-			-- アイテム情報を保持
-			local itemInfo = g_itemInfo[itemNameTable[i]]
-
-			-- アイテムを所持している場合
-			if getItemCount(itemInfo.name) > 0 then
-
-				-- 同一タイプの発動アイテムを取得
-				local activeItem = getActiveItem( itemInfo.type )
-
-				-- アイテムが発動していないか発動しているアイテムの効果が低い場合
-				if activeItem == nil or activeItem.itemInfo.param < itemInfo.param then
-
-					-- アイテム情報を返す
-					return itemInfo
-				end
-			end
-		end
-	end
-
-
 	-- レース出走時に実行する行動を取得する関数
 	-- レース情報を引数に渡す
 	-- レース出走前にスキルの確認やアイテムを使用したい場合は先に実行する行動を返すようにする
@@ -2516,28 +2451,28 @@ function getAction( actionInfo )
 			if g_status[STATUS.SEASON].index == SEASON.CLIMAX.index then
 
 				-- 全てのバフアイテムを使用する
-				buffItem = getUseBuffItem( {ITEM.HAMMER2, ITEM.HAMMER1, ITEM.PENLIGHT} )
+				buffItem = USER.getUseBuffItem( {ITEM.HAMMER2, ITEM.HAMMER1, ITEM.PENLIGHT} )
 
 			-- クライマックス開催中ではない場合
 			else
 
 				-- 蹄鉄ハンマーの合計が3つ以下の場合
-				if getItemCount(ITEM.HAMMER1) + getItemCount(ITEM.HAMMER2) <= 3 then
+				if USER.getItemCount(ITEM.HAMMER1) + USER.getItemCount(ITEM.HAMMER2) <= 3 then
 
 					-- 蹄鉄ハンマーは除外する
-					buffItem = getUseBuffItem( {ITEM.PENLIGHT} )
+					buffItem = USER.getUseBuffItem( {ITEM.PENLIGHT} )
 
 				-- 蹄鉄ハンマー・極が3つ以下の場合
-				elseif getItemCount(ITEM.HAMMER2) <= 3 then
+				elseif USER.getItemCount(ITEM.HAMMER2) <= 3 then
 
 					-- 蹄鉄ハンマー・極は除外する
-					buffItem = getUseBuffItem( {ITEM.HAMMER1, ITEM.PENLIGHT} )
+					buffItem = USER.getUseBuffItem( {ITEM.HAMMER1, ITEM.PENLIGHT} )
 
 				-- 条件に当てはまらない場合
 				else
 
 					-- 全てのバフアイテムを使用する
-					buffItem = getUseBuffItem( {ITEM.HAMMER2, ITEM.HAMMER1, ITEM.PENLIGHT} )
+					buffItem = USER.getUseBuffItem( {ITEM.HAMMER2, ITEM.HAMMER1, ITEM.PENLIGHT} )
 				end
 			end
 
@@ -2661,66 +2596,6 @@ function getAction( actionInfo )
 	end
 
 
-	-- 最終ターンかどうかを判定する関数
-	----------------------------------------------------------------------------------------------------
-	local function isFinalTurn()
-
-		-- 時期がURAファイナルズかつ時期インデックスが5以上の場合は最終ターン
-		if g_status[STATUS.SEASON].index == SEASON.FINALS.index and g_status[STATUS.SEASON_INDEX] >= 5 then
-			return true
-		end
-
-		-- 時期がクライマックスかつ時期インデックスが5以上の場合は最終ターン
-		if g_status[STATUS.SEASON].index == SEASON.CLIMAX.index and g_status[STATUS.SEASON_INDEX] >= 5 then
-			return true
-		end
-
-		return false
-	end
-
-
-	-- 夏合宿中かどうかを判定する関数
-	----------------------------------------------------------------------------------------------------
-	local function isSummerCamp()
-
-		-- クラシック級
-		if g_status[STATUS.SEASON].index >= SEASON.CLASSIC_7A.index and g_status[STATUS.SEASON].index <= SEASON.CLASSIC_8B.index then
-			return true
-
-		-- シニア級
-		elseif g_status[STATUS.SEASON].index >= SEASON.SENIOR_7A.index and g_status[STATUS.SEASON].index <= SEASON.SENIOR_8B.index then
-			return true
-		end
-
-		return false
-	end
-
-
-	-- 夏合宿直前かどうかを判定する関数
-	----------------------------------------------------------------------------------------------------
-	local function isJustBeforeSummerCamp()
-
-		-- クラシック級6月後半の場合
-		if g_status[STATUS.SEASON].index == SEASON.CLASSIC_6B.index then
-			return true
-
-		-- クラシック級6月後半にレース本番が割り込む場合
-		elseif g_status[STATUS.SEASON].index == SEASON.CLASSIC_6A.index and g_status[STATUS.TURN] == 1 then
-			return true
-
-		-- シニア級6月後半の場合
-		elseif g_status[STATUS.SEASON].index == SEASON.SENIOR_6B.index then
-			return true
-
-		-- シニア級6月後半にレース本番が割り込む場合
-		elseif g_status[STATUS.SEASON].index == SEASON.SENIOR_6A.index and g_status[STATUS.TURN] == 1 then
-			return true
-		end
-
-		return false
-	end
-
-
 	-- ステータスを回復する行動を取得する関数
 	-- 友人とお出かけを利用して回復したい場合やアイテムを使用して回復したい場合に処理を追加する
 	----------------------------------------------------------------------------------------------------
@@ -2742,7 +2617,7 @@ function getAction( actionInfo )
 			for i = 1, #itemNameTable do
 
 				-- アイテムを所持している場合
-				if getItemCount(itemNameTable[i]) > 0 then
+				if USER.getItemCount(itemNameTable[i]) > 0 then
 
 					-- 体力がアイテムの回復量-10以上減っている場合
 					if g_status[STATUS.MAXHP] - g_status[STATUS.HP] >= g_itemInfo[itemNameTable[i]].param - 10 then
@@ -2756,10 +2631,10 @@ function getAction( actionInfo )
 			for i = 1, #itemNameTable do
 
 				-- アイテムを所持している場合
-				if getItemCount(itemNameTable[i]) > 0 then
+				if USER.getItemCount(itemNameTable[i]) > 0 then
 
 					-- 夏合宿中かシニア級の10月以降の場合
-					if isSummerCamp() or g_status[STATUS.SEASON].index >= SEASON.SENIOR_10A.index then
+					if USER.isSummerCamp() or g_status[STATUS.SEASON].index >= SEASON.SENIOR_10A.index then
 
 						-- アイテムを使用
 						return ACTION.USE_ITEM, g_itemInfo[itemNameTable[i]]
@@ -2797,7 +2672,7 @@ function getAction( actionInfo )
 			for i = 1, #itemNameTable do
 
 				-- アイテムを所持している場合
-				if getItemCount(itemNameTable[i]) > 0 then
+				if USER.getItemCount(itemNameTable[i]) > 0 then
 
 					-- アイテムを使用
 					return ACTION.USE_ITEM, g_itemInfo[itemNameTable[i]]
@@ -2809,18 +2684,6 @@ function getAction( actionInfo )
 
 		-- コンディションの場合
 		elseif statusName == STATUS.CONDITION then
-
-			-- 引数として渡したコンディション名が存在するどうかを判定する関数
-			----------------------------------------------------------------------------------------------------
-			local function hasCondition( conditionName )
-				for i = 1, #g_status[STATUS.CONDITION] do
-					if g_status[STATUS.CONDITION][i].name == conditionName then
-						return true
-					end
-				end
-				return false
-			end
-
 
 			-- 能力詳細を確認する処理
 			-- コンディションは能力詳細を確認しないと不明なのでクライマックスシナリオの場合は確認しておく
@@ -2852,10 +2715,10 @@ function getAction( actionInfo )
 			for i = 1, #itemNameTable do
 
 				-- アイテムを所持している場合
-				if getItemCount(itemNameTable[i]) > 0 then
+				if USER.getItemCount(itemNameTable[i]) > 0 then
 
 					-- アイテムのパラメータに設定されているコンディションが存在するかをhasCondition関数で判定
-					if hasCondition(g_itemInfo[itemNameTable[i]].param) then
+					if USER.hasCondition(g_itemInfo[itemNameTable[i]].param) then
 
 						-- アイテムを使用
 						return ACTION.USE_ITEM, g_itemInfo[itemNameTable[i]]
@@ -2864,7 +2727,7 @@ function getAction( actionInfo )
 			end
 
 			-- ナンデモナオールを所持している場合
-			if getItemCount(ITEM.CONDITION_ALL_BAD) > 0 then
+			if USER.getItemCount(ITEM.CONDITION_ALL_BAD) > 0 then
 
 				-- ナンデモナオールを使用
 				return ACTION.USE_ITEM, g_itemInfo[ITEM.CONDITION_ALL_BAD]
@@ -2895,7 +2758,7 @@ function getAction( actionInfo )
 		-- 最終ターンの場合はリスクを覚悟してトレーニングを行う
 		----------------------------------------------------------------------------------------------------
 		-- 最終ターンの場合
-		if isFinalTurn() then
+		if USER.isFinalTurn() then
 
 			-- トレーニング確認
 			return ACTION.CHECK_TRAINING, trainingNameTable
@@ -2929,7 +2792,7 @@ function getAction( actionInfo )
 		-- 夏合宿に入る前に体力を回復するようにする
 		----------------------------------------------------------------------------------------------------
 		-- 夏合宿前の場合
-		elseif isJustBeforeSummerCamp() then
+		elseif USER.isJustBeforeSummerCamp() then
 
 			-- 体力が80以下の場合
 			if g_status[STATUS.HP] <= 80 then
@@ -2979,7 +2842,7 @@ function getAction( actionInfo )
 		-- 体力が80以下の場合はトレーニングを確認する前の処理で体力を回復する行動が実行されている
 		----------------------------------------------------------------------------------------------------
 		-- 夏合宿前の場合
-		if isJustBeforeSummerCamp() then
+		if USER.isJustBeforeSummerCamp() then
 
 			-- トレーニング制限で選択可能なトレーニングが1つのみの場合
 			if #actionInfo.trainingScoreTable == 1 then
@@ -3001,7 +2864,7 @@ function getAction( actionInfo )
 		-- レースの優先度とトレーニングの評価点を比較してレースに出走するかを判断する
 		----------------------------------------------------------------------------------------------------
 		-- 夏合宿中ではない場合
-		if not isSummerCamp() then
+		if not USER.isSummerCamp() then
 
 			-- 3回連続出走にならない場合
 			if g_status[STATUS.RACE_CONSECUTIVE_COUNT] < 2 then
@@ -3042,7 +2905,7 @@ function getAction( actionInfo )
 		local function isUseOmamori()
 
 			-- 健康祈願のお守りを持っていない場合
-			if getItemCount(ITEM.OMAMORI) == 0 then
+			if USER.getItemCount(ITEM.OMAMORI) == 0 then
 
 				-- 使用しない
 				return false
@@ -3062,24 +2925,11 @@ function getAction( actionInfo )
 				return false
 			end
 
-			-- アイテムで回復できる体力の合計を算出
-			local totalRecoverHp = 0
-			local itemNameTable =
-			{
-				ITEM.JUICE,
-				ITEM.VITAL3,
-				ITEM.VITAL2,
-				ITEM.VITAL1,
-			}
-			for i = 1, #itemNameTable do
-				totalRecoverHp = totalRecoverHp + getItemCount(itemNameTable[i]) * g_itemInfo[itemNameTable[i]].param
-			end
-
 			-- 夏合宿またはシニア級の夏合宿以降の場合
-			if isSummerCamp() or g_status[STATUS.SEASON].index >= SEASON.SENIOR_7A.index then
+			if USER.isSummerCamp() or g_status[STATUS.SEASON].index >= SEASON.SENIOR_7A.index then
 
 				-- アイテムで回復できない場合
-				if totalRecoverHp == 0 then
+				if USER.getTotalRecoverHp() == 0 then
 
 					-- 使用する
 					return true
@@ -3094,10 +2944,10 @@ function getAction( actionInfo )
 			end
 
 			-- 体力が健康祈願のお守りの数*30以下の場合
-			if g_status[STATUS.HP] <= getItemCount(ITEM.OMAMORI) * 30 then
+			if g_status[STATUS.HP] <= USER.getItemCount(ITEM.OMAMORI) * 30 then
 
 				-- アイテムで回復できる体力の合計が50以上の場合
-				if totalRecoverHp >= 50 then
+				if USER.getTotalRecoverHp() >= 50 then
 
 					-- 使用する
 					return true
@@ -3115,7 +2965,7 @@ function getAction( actionInfo )
 		if isUseOmamori() then
 
 			-- 使用するバフアイテムをgetUseBuffItem関数で取得
-			local buffItem = getUseBuffItem( {ITEM.OMAMORI} )
+			local buffItem = USER.getUseBuffItem( {ITEM.OMAMORI} )
 
 			-- アイテム情報が返ってきた場合
 			if buffItem then
@@ -3130,14 +2980,14 @@ function getAction( actionInfo )
 		-- この部分の条件を変更することによって失敗するリスクを覚悟してトレーニングを行う事が可能
 		----------------------------------------------------------------------------------------------------
 		-- 健康祈願のお守りが発動していない場合
-		if getActiveItem(ITEM_TYPE.OMAMORI) == nil then
+		if USER.getActiveItem(ITEM_TYPE.OMAMORI) == nil then
 
 			-- 最終ターンではないか回復アイテムを所持している場合
-			if not isFinalTurn() or
-				getItemCount(ITEM.JUICE) > 0 or
-				getItemCount(ITEM.VITAL3) > 0 or
-				getItemCount(ITEM.VITAL2) > 0 or
-				getItemCount(ITEM.VITAL1) > 0 then
+			if not USER.isFinalTurn() or
+				USER.getItemCount(ITEM.JUICE) > 0 or
+				USER.getItemCount(ITEM.VITAL3) > 0 or
+				USER.getItemCount(ITEM.VITAL2) > 0 or
+				USER.getItemCount(ITEM.VITAL1) > 0 then
 
 				-- 体力が50以下かつ最高スコアのトレーニングの失敗率が1%以上の場合
 				if g_status[STATUS.HP] <= 50 and actionInfo.trainingScoreTable[1].failureRate > 0 then
@@ -3152,13 +3002,13 @@ function getAction( actionInfo )
 		-- リセットホイッスルを使用する処理
 		----------------------------------------------------------------------------------------------------
 		-- 夏合宿またはクライマックス開催中の場合
-		if isSummerCamp() or g_status[STATUS.SEASON].index == SEASON.CLIMAX.index then
+		if USER.isSummerCamp() or g_status[STATUS.SEASON].index == SEASON.CLIMAX.index then
 
 			-- トレーニングの評価点が50以下の場合
 			if trainingEvaluation < 50 then
 
 				-- リセットホイッスルを所持している場合
-				if getItemCount(ITEM.WHISTLE) > 0 then
+				if USER.getItemCount(ITEM.WHISTLE) > 0 then
 
 					-- トレーニングの確認を再度行うためにactionTableのフラグをリセット
 					actionInfo.actionTable[ACTION.CHECK_TRAINING] = nil
@@ -3177,7 +3027,7 @@ function getAction( actionInfo )
 		local borderTrainingEvaluation = 0
 
 		-- 夏合宿中かクライマックス開催中の場合
-		if isSummerCamp() or g_status[STATUS.SEASON].index == SEASON.CLIMAX.index then
+		if USER.isSummerCamp() or g_status[STATUS.SEASON].index == SEASON.CLIMAX.index then
 
 			-- 0点をボーダーにして必ず使用するようにする
 			borderTrainingEvaluation = 0
@@ -3229,7 +3079,7 @@ function getAction( actionInfo )
 			end
 
 			-- 使用するバフアイテムをgetUseBuffItem関数で取得
-			local buffItem = getUseBuffItem( itemNameTable )
+			local buffItem = USER.getUseBuffItem( itemNameTable )
 
 			-- アイテム情報が返ってきた場合
 			if buffItem then
@@ -3563,6 +3413,7 @@ end
 --     rp                 現在のRP
 --     trainingCount      残り周回数（初期値はCONFIG.AUTO_MODE.TRAINING_COUNTになる）
 --     rentalCount        残りレンタル回数（初回は認識されていないのでnilになる）
+--     racingCarnival     レーシングカーニバルが開催されているか（開催されている場合trueになる）
 --     selectCarnivalRace レーシングカーニバルで出走するカーニバルレース（初期値はCONFIG.RACING_CARNIVAL.SELECT_CARNIVAL_RACEになる）
 --     errorRental        継承ウマ娘選択時に残りレンタル回数が0の状態でレンタルしようとした場合にtrueがセットされてホーム画面へ戻る
 --     errorInheritance   継承ウマ娘選択時に選択不可能なウマ娘を選択した場合にtrueがセットされてホーム画面へ戻る
@@ -3579,12 +3430,18 @@ end
 --   HOME_ACTION.TRAINING        育成開始（再開データが存在する場合は再開）
 --   HOME_ACTION.TEAM_RACE       チーム競技場をRPが残っているだけ周回してホームへ戻る
 --   HOME_ACTION.AUTO_RACE       レース画面へ遷移後CONFIG.AUTO_RACEの設定に従ってレースを周回する
---   HOME_ACTION.RACING_CARNIVAL レーシングカーニバル画面へ遷移後CONFIG.RACING_CARNIVALの設定に従ってレースを周回する
 --   HOME_ACTION.CIRCLE          サークル画面へ遷移後CONFIG.CIRCLEの設定に従って寄付やリクエストを行う
 --   HOME_ACTION.FRIEND          フレンド画面へ遷移後CONFIG.FRIENDの設定に従ってフレンドのフォローを行う
+--   HOME_ACTION.TITLE           タイトルへ戻る
 --   HOME_ACTION.WAIT            待機（CONFIG.WAIT.HOMEで指定している時間に従って待機した後に再びgetHomeActionが呼び出される）
 --   HOME_ACTION.REBOOT          ウマ娘の再起動
 --   HOME_ACTION.EXIT            スクリプトの終了
+--   HOME_ACTION.EXIT_APP        ウマサポの終了
+--                                 2つ目の戻り値にtrueを指定するとウマ娘も同時に終了する
+--   HOME_ACTION.EXIT_WINDOWS    Windowsの終了
+--                                 2つ目の戻り値にtrueを指定するとプロセスを強制的に終了する
+--   HOME_ACTION.REBOOT_WINDOWS  Windowsの再起動
+--                                 2つ目の戻り値にtrueを指定するとプロセスを強制的に終了する
 ----------------------------------------------------------------------------------------------------
 function getHomeAction( homeInfo )
 
@@ -3612,6 +3469,22 @@ function getHomeAction( homeInfo )
 	-- RPが残っている場合
 	if homeInfo.rp > 0 then
 
+		-- 以下のように記述するとレーシングカーニバル開催中はRPをチーム競技場ではなくレーシングカーニバルで消費することができる
+		-- デイリーミッション消化のために1回はチーム競技場へ出走する
+		-- ユーザー定義ステータスに『DAILY_MISSION_TEAM_RACE』といった定数名でデイリーミッション消化フラグのステータスを有効期間『一日』初期値『false』で設定しておく必要がある
+--[[
+		if homeInfo.racingCarnival then
+			if g_status[STATUS.USER.DAILY_MISSION_TEAM_RACE] then
+				CONFIG.TEAM_RACE.COUNT = 0
+			else
+				CONFIG.TEAM_RACE.COUNT = 1
+				setStatus( STATUS.USER.DAILY_MISSION_TEAM_RACE, true )
+			end
+		else
+			CONFIG.AUTO_MODE.RACING_CARNIVAL = false
+		end
+]]
+
 		-- CONFIG.AUTO_MODE.TEAM_RACEがtrueの場合チーム競技場を周回する
 		if CONFIG.AUTO_MODE.TEAM_RACE then
 			if homeInfo.actionTable[HOME_ACTION.TEAM_RACE] == nil then
@@ -3623,13 +3496,6 @@ function getHomeAction( homeInfo )
 		elseif CONFIG.AUTO_MODE.AUTO_RACE then
 			if homeInfo.actionTable[HOME_ACTION.AUTO_RACE] == nil then
 				return HOME_ACTION.AUTO_RACE
-			end
-
-
-		-- CONFIG.AUTO_MODE.RACING_CARNIVALがtrueの場合CONFIG.RACING_CARNIVALで設定しているレースを周回する
-		elseif CONFIG.AUTO_MODE.RACING_CARNIVAL then
-			if homeInfo.actionTable[HOME_ACTION.RACING_CARNIVAL] == nil then
-				return HOME_ACTION.RACING_CARNIVAL
 			end
 		end
 	end
@@ -3880,7 +3746,7 @@ function onStartTurn()
 
 	-- 以下のように記述すると特定のスキルを習得後に特定のサポートキャラのヒントの優先度を変更することができる
 --[[
-	if isAcquireSkill(g_skillInfo["スキル名"]) then
+	if USER.hasSkill(g_skillInfo["スキル名"]) then
 		g_supportCharacterInfo["サポートキャラ名（二つ名込み）"].hintPriority = 0
 	end 
 ]]
@@ -4040,6 +3906,12 @@ end
 -- 経過時間オーバー等でウマ娘が再起動された時に呼び出される
 ----------------------------------------------------------------------------------------------------
 function onReboot()
+
+	-- 以下のように記述すると再起動時のスクリーンショットを保存することができる
+	-- screenshot()
+	-- 引数にファイル名（拡張子は含めない）を指定すると指定したファイル名で保存される
+	-- osDateText関数を利用すると現在の日付と時間をテキストとして取得することができる
+	-- screenshot( "再起動：" .. osDateText() )
 end
 
 
@@ -4061,8 +3933,174 @@ end
 -- print = 0
 -- このように記述してしまうとprint関数が0で上書きされてprint関数を呼び出す時にエラーとなる
 ----------------------------------------------------------------------------------------------------
--- 以下の関数は育成ログの備考欄に引数として渡した文字列がいくつ存在するかをカウントして戻り値として返す
---[[
+
+-- 二つ名を削除する関数
+----------------------------------------------------------------------------------------------------
+function USER.removeNickName( name )
+	local pos = name:find(" %[")
+	if pos then
+		name = name:sub( 1, pos - 1 )
+	end
+	return name
+end
+
+-- スキルを習得しているかどうかを判定する関数
+----------------------------------------------------------------------------------------------------
+function USER.hasSkill( skillInfo )
+	for i = 1, #g_status[STATUS.ACQUIRE_SKILL] do
+		if g_status[STATUS.ACQUIRE_SKILL][i].name == skillInfo.name then
+			return true
+		end
+	end
+	return false
+end
+
+-- 引数として渡したコンディション名が存在するどうかを判定する関数
+----------------------------------------------------------------------------------------------------
+function USER.hasCondition( conditionName )
+	for i = 1, #g_status[STATUS.CONDITION] do
+		if g_status[STATUS.CONDITION][i].name == conditionName then
+			return true
+		end
+	end
+	return false
+end
+
+-- アイテムの所持数を取得する関数
+-- 扱いやすいように引数はアイテム名を渡すようにしている
+-- USER.getItemCount(ITEM.MEGAPHONE1)でチアメガホンの所持数を取得できる
+----------------------------------------------------------------------------------------------------
+function USER.getItemCount( itemName )
+	for i = 1, #g_status[STATUS.ITEM] do
+		if g_status[STATUS.ITEM][i].itemInfo.name == itemName then
+			return g_status[STATUS.ITEM][i].count
+		end
+	end
+	return 0
+end
+
+-- 発動中のアイテムを取得する関数
+-- 引数は重複不可アイテムに対応するためアイテムタイプを渡す
+-- USER.getActiveItem(ITEM_TYPE.MEGAPHONE)で発動中のメガホンの発動アイテムを取得できる
+----------------------------------------------------------------------------------------------------
+function USER.getActiveItem( itemType )
+	for i = 1, #g_status[STATUS.ACTIVE_ITEM] do
+		if g_status[STATUS.ACTIVE_ITEM][i].itemInfo.type == itemType then
+			return g_status[STATUS.ACTIVE_ITEM][i]
+		end
+	end
+end
+
+-- 使用するバフアイテムを取得する関数
+-- アイテム名のテーブルから使用するバフアイテムを取得する
+-- テーブルの前の方のアイテムが優先的に使用される
+-- 効果の低いアイテムが発動中であっても使用される
+----------------------------------------------------------------------------------------------------
+function USER.getUseBuffItem( itemNameTable )
+
+	for i = 1, #itemNameTable do
+
+		-- アイテム情報を保持
+		local itemInfo = g_itemInfo[itemNameTable[i]]
+
+		-- アイテムを所持している場合
+		if USER.getItemCount(itemInfo.name) > 0 then
+
+			-- 同一タイプの発動アイテムを取得
+			local activeItem = USER.getActiveItem( itemInfo.type )
+
+			-- アイテムが発動していないか発動しているアイテムの効果が低い場合
+			if activeItem == nil or activeItem.itemInfo.param < itemInfo.param then
+
+				-- アイテム情報を返す
+				return itemInfo
+			end
+		end
+	end
+end
+
+-- アイテムで回復できる体力の合計を取得する関数
+----------------------------------------------------------------------------------------------------
+function USER.getTotalRecoverHp()
+	local totalRecoverHp = 0
+	local itemNameTable =
+	{
+		ITEM.JUICE,
+		ITEM.VITAL3,
+		ITEM.VITAL2,
+		ITEM.VITAL1,
+	}
+	for i = 1, #itemNameTable do
+		totalRecoverHp = totalRecoverHp + USER.getItemCount(itemNameTable[i]) * g_itemInfo[itemNameTable[i]].param
+	end
+	return totalRecoverHp
+end
+
+-- 最終ターンかどうかを判定する関数
+----------------------------------------------------------------------------------------------------
+function USER.isFinalTurn()
+
+	-- 時期がURAファイナルズかつ時期インデックスが5以上の場合は最終ターン
+	if g_status[STATUS.SEASON].index == SEASON.FINALS.index and g_status[STATUS.SEASON_INDEX] >= 5 then
+		return true
+	end
+
+	-- 時期がクライマックスかつ時期インデックスが5以上の場合は最終ターン
+	if g_status[STATUS.SEASON].index == SEASON.CLIMAX.index and g_status[STATUS.SEASON_INDEX] >= 5 then
+		return true
+	end
+
+	return false
+end
+
+-- 夏合宿中かどうかを判定する関数
+----------------------------------------------------------------------------------------------------
+function USER.isSummerCamp()
+
+	-- クラシック級
+	if g_status[STATUS.SEASON].index >= SEASON.CLASSIC_7A.index and g_status[STATUS.SEASON].index <= SEASON.CLASSIC_8B.index then
+		return true
+
+	-- シニア級
+	elseif g_status[STATUS.SEASON].index >= SEASON.SENIOR_7A.index and g_status[STATUS.SEASON].index <= SEASON.SENIOR_8B.index then
+		return true
+	end
+
+	return false
+end
+
+-- 夏合宿直前かどうかを判定する関数
+----------------------------------------------------------------------------------------------------
+function USER.isJustBeforeSummerCamp()
+
+	-- クラシック級6月後半の場合
+	if g_status[STATUS.SEASON].index == SEASON.CLASSIC_6B.index then
+		return true
+
+	-- クラシック級6月後半にレース本番が割り込む場合
+	elseif g_status[STATUS.SEASON].index == SEASON.CLASSIC_6A.index and g_status[STATUS.TURN] == 1 then
+		return true
+
+	-- シニア級6月後半の場合
+	elseif g_status[STATUS.SEASON].index == SEASON.SENIOR_6B.index then
+		return true
+
+	-- シニア級6月後半にレース本番が割り込む場合
+	elseif g_status[STATUS.SEASON].index == SEASON.SENIOR_6A.index and g_status[STATUS.TURN] == 1 then
+		return true
+	end
+
+	return false
+end
+
+-- 育成ログの備考欄に引数として渡した文字列がいくつ存在するかをカウントする関数
+-- 利用例
+-- USER.getNoteCount( "●トレーニング：スピード" )
+-- と記述するとスピードのトレーニングを行った回数を取得できる
+-- USER.getNoteCount( "●レース出走：" .. "レース名" .. "：1着" )
+-- と記述するとレースに勝利したかを判定できる
+-- クラシック級で勝利したレースにシニア級では出走しないといった処理に利用できる
+----------------------------------------------------------------------------------------------------
 function USER.getNoteCount( text )
 	local count = 0
 	for i = 1, #g_trainingLogInfo do
@@ -4072,28 +4110,6 @@ function USER.getNoteCount( text )
 	end
 	return count
 end
-]]
--- 利用例
--- USER.getNoteCount( "●トレーニング：スピード" )
--- と記述するとスピードのトレーニングを行った回数を取得できる
--- USER.getNoteCount( "●レース出走：" .. "レース名" .. "：1着" )
--- と記述するとレースに勝利したかを判定できる
--- クラシック級で勝利したレースにシニア級では出走しないといった処理に利用できる
-
--- 以下の関数はコンディションに引数として渡したコンディション名が存在するどうかを真偽値で返す
---[[
-function USER.hasCondition( conditionName )
-	for i = 1, #g_status[STATUS.CONDITION] do
-		if g_status[STATUS.CONDITION][i].name == conditionName then
-			return true
-		end
-	end
-	return false
-end
-]]
--- 利用例
--- USER.hasCondition( "切れ者" )
--- と記述するとコンディションに切れ者が存在すればtrue、存在しなければfalseになる
 
 
 ----------------------------------------------------------------------------------------------------
